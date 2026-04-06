@@ -1,6 +1,7 @@
 import os
 import json
 import time
+import datetime
 import webbrowser
 import urllib.parse
 import requests
@@ -9,6 +10,7 @@ CLIENT_ID     = "7f29e728-a751-4bd7-90b6-3f4e76bff07c"
 CLIENT_SECRET = "8e0e7d2799ee47af2e51ac05a45fb8022672b3bb66422f8defd8ce204bcece5e"
 REDIRECT_URI  = "https://localhost"
 TOKEN_FILE    = "whoop_tokens.json"
+DATA_FILE     = "whoop_data.json"
 
 SCOPES = "offline read:recovery read:sleep read:cycles read:workout read:profile read:body_measurement"
 AUTH_URL   = "https://api.prod.whoop.com/oauth/oauth2/auth"
@@ -108,31 +110,75 @@ def main():
 
     print("\nAuthenticated! Fetching your WHOOP data...\n")
 
+    data = {
+        "fetched_at": datetime.datetime.utcnow().isoformat() + "Z"
+    }
+
     # Profile
     profile = api_get("/user/profile/basic", tokens)
+    data["profile"] = profile
     print(f"Profile: {profile.get('first_name')} {profile.get('last_name')} (ID: {profile.get('user_id')})")
 
+    # Body measurements
+    try:
+        body = api_get("/user/measurement/body", tokens)
+        data["body"] = body
+        print(f"Body: {body.get('height_meter')}m, {body.get('weight_kilogram')}kg")
+    except Exception as e:
+        print(f"Body measurements unavailable: {e}")
+
     # Recovery
-    recovery = api_get("/recovery?limit=1", tokens)
-    if recovery.get("records"):
-        r = recovery["records"][0]
-        score = r.get("score", {})
-        print(f"Latest Recovery Score : {score.get('recovery_score')}%")
-        print(f"  HRV: {score.get('hrv_rmssd_milli')} ms  |  Resting HR: {score.get('resting_heart_rate')} bpm")
+    try:
+        recovery = api_get("/recovery?limit=7", tokens)
+        data["recovery"] = recovery.get("records", [])
+        if recovery.get("records"):
+            r = recovery["records"][0]
+            score = r.get("score", {})
+            print(f"Latest Recovery Score : {score.get('recovery_score')}%")
+            print(f"  HRV: {score.get('hrv_rmssd_milli')} ms  |  Resting HR: {score.get('resting_heart_rate')} bpm")
+        else:
+            print("Recovery: no data yet")
+    except Exception as e:
+        print(f"Recovery unavailable: {e}")
 
     # Sleep
-    sleep_data = api_get("/activity/sleep?limit=1", tokens)
-    if sleep_data.get("records"):
-        s = sleep_data["records"][0].get("score", {})
-        print(f"Latest Sleep Performance: {s.get('sleep_performance_percentage')}%")
-        print(f"  Duration: {round(s.get('total_in_bed_time_milli', 0) / 3600000, 1)}h in bed")
+    try:
+        sleep_data = api_get("/activity/sleep?limit=7", tokens)
+        data["sleep"] = sleep_data.get("records", [])
+        if sleep_data.get("records"):
+            s = sleep_data["records"][0].get("score", {})
+            print(f"Latest Sleep Performance: {s.get('sleep_performance_percentage')}%")
+            print(f"  Duration: {round(s.get('total_in_bed_time_milli', 0) / 3600000, 1)}h in bed")
+        else:
+            print("Sleep: no data yet")
+    except Exception as e:
+        print(f"Sleep unavailable: {e}")
 
-    # Strain / Cycle
-    cycle = api_get("/cycle?limit=1", tokens)
-    if cycle.get("records"):
-        c = cycle["records"][0].get("score", {})
-        print(f"Latest Day Strain     : {c.get('strain')}")
-        print(f"  Avg HR: {c.get('average_heart_rate')} bpm  |  Kilojoules: {c.get('kilojoule')}")
+    # Cycle / Strain
+    try:
+        cycle = api_get("/cycle?limit=7", tokens)
+        data["cycles"] = cycle.get("records", [])
+        if cycle.get("records"):
+            c = cycle["records"][0].get("score", {})
+            print(f"Latest Day Strain     : {c.get('strain')}")
+            print(f"  Avg HR: {c.get('average_heart_rate')} bpm  |  Kilojoules: {c.get('kilojoule')}")
+        else:
+            print("Cycles: no data yet")
+    except Exception as e:
+        print(f"Cycles unavailable: {e}")
+
+    # Workouts
+    try:
+        workouts = api_get("/activity/workout?limit=7", tokens)
+        data["workouts"] = workouts.get("records", [])
+        print(f"Workouts (last 7): {len(data['workouts'])} records")
+    except Exception as e:
+        print(f"Workouts unavailable: {e}")
+
+    # Save to JSON file
+    with open(DATA_FILE, "w") as f:
+        json.dump(data, f, indent=2)
+    print(f"\nAll data saved to {DATA_FILE} — upload this to your Claude project!")
 
 
 if __name__ == "__main__":
