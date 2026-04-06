@@ -11,9 +11,7 @@ REDIRECT_URI  = "https://localhost"
 TOKEN_URL     = "https://api.prod.whoop.com/oauth/oauth2/token"
 TOKEN_FILE    = "whoop_tokens.json"
 
-# --- PASTE YOUR CODE HERE ---
-AUTH_CODE = "pKWkFJF-xlQHeJ6Pi2r8wTN7Vlu0UiGRQS_13v7F26A.JH4MKk6l2SIi1EjDvmR9YciXa0VJfPG3UNcpNAlKRGc"
-# ----------------------------
+AUTH_CODE = "w2t20R1AmKtYn2i4id4MGRd3bO9jWo4DJVI9idoDJ-E.otQi5X7RfpuKK0k49Ukg6oPIMxtai3DvwTA0zXQc0Xc"
 
 def exchange():
     resp = requests.post(TOKEN_URL, data={
